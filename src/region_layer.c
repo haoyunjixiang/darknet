@@ -430,8 +430,9 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
                 }
             } else {
                 float max = 0;
+                int class_index = entry_index(l, 0, n*l.w*l.h + i, l.coords + 1 + 0);
+                int lwlh = l.w * l.h;
                 for(j = 0; j < l.classes; ++j){
-                    int class_index = entry_index(l, 0, n*l.w*l.h + i, l.coords + 1 + j);
                     float prob = scale*predictions[class_index];
                     probs[index][j] = (prob > thresh) ? prob : 0;
                     if(prob > max) max = prob;
@@ -445,6 +446,7 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
                        if(index == blacklist[bb]) probs[index][j] = 0;
                        }
                      */
+                    class_index += lwlh;
                 }
                 probs[index][l.classes] = max;
             }

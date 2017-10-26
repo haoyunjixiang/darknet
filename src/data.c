@@ -963,6 +963,7 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int boxes, in
 
         float new_ar = (orig.w + rand_uniform(-dw, dw)) / (orig.h + rand_uniform(-dh, dh));
         float scale = rand_uniform(.25, 2);
+        scale = rand_scale(1.2);
 
         float nw, nh;
 
@@ -982,6 +983,7 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int boxes, in
         random_distort_image(sized, hue, saturation, exposure);
 
         int flip = rand()%2;
+        flip = 0;
         if(flip) flip_image(sized);
         d.X.vals[i] = sized.data;
 

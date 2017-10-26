@@ -1,6 +1,6 @@
-GPU=0
-CUDNN=0
-OPENCV=0
+GPU=1
+CUDNN=1
+OPENCV=1
 OPENMP=0
 DEBUG=0
 
@@ -26,7 +26,7 @@ ARFLAGS=rcs
 OPTS=-Ofast
 LDFLAGS= -lm -pthread 
 COMMON= -Iinclude/ -Isrc/
-CFLAGS=-Wall -Wno-unknown-pragmas -Wfatal-errors -fPIC
+CFLAGS=-Wall -Wfatal-errors -fPIC
 
 ifeq ($(OPENMP), 1) 
 CFLAGS+= -fopenmp

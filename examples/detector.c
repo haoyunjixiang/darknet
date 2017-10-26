@@ -133,7 +133,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
             sprintf(buff, "%s/%s.backup", backup_directory, base);
             save_weights(net, buff);
         }
-        if(i%10000==0 || (i < 1000 && i%100 == 0)){
+        if(i%2000==0 || (i <= 1000 && i%100 == 0)){
 #ifdef GPU
             if(ngpus != 1) sync_nets(nets, ngpus, 0);
 #endif
@@ -156,6 +156,26 @@ static int get_coco_image_id(char *filename)
 {
     char *p = strrchr(filename, '_');
     return atoi(p+1);
+}
+
+static void print_chinese(FILE *fp, char *image_path, box *boxes, float **probs, int num_boxes, int classes, int w, int h)
+{
+    int i, j;
+    for(i = 0; i < num_boxes; ++i){
+        float xmin = boxes[i].x - boxes[i].w/2.;
+        float xmax = boxes[i].x + boxes[i].w/2.;
+        float ymin = boxes[i].y - boxes[i].h/2.;
+        float ymax = boxes[i].y + boxes[i].h/2.;
+
+        float bx = xmin;
+        float by = ymin;
+        float bw = xmax - xmin;
+        float bh = ymax - ymin;
+
+        for(j = 0; j < classes; ++j){
+            if (probs[i][j]) fprintf(fp, "%s %d %f %f %f %f %f\n", image_path, j, bx, by, bw, bh, probs[i][j]);
+        }
+    }
 }
 
 static void print_cocos(FILE *fp, char *image_path, box *boxes, float **probs, int num_boxes, int classes, int w, int h)
@@ -387,9 +407,14 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile, char *out
     char *type = option_find_str(options, "eval", "voc");
     FILE *fp = 0;
     FILE **fps = 0;
+    int chinese = 0;
     int coco = 0;
     int imagenet = 0;
-    if(0==strcmp(type, "coco")){
+    if (0 == strcmp(type, "chinese")) {
+        snprintf(buff, 1024, "%s/%s.txt", prefix, outfile);
+        fp = fopen(buff, "w");
+        chinese = 1;
+    } else if(0==strcmp(type, "imagenet")){
         if(!outfile) outfile = "coco_results";
         snprintf(buff, 1024, "%s/%s.json", prefix, outfile);
         fp = fopen(buff, "w");
@@ -401,13 +426,16 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile, char *out
         fp = fopen(buff, "w");
         imagenet = 1;
         classes = 200;
-    } else {
+    } else if(0==strcmp(type, "voc")){
         if(!outfile) outfile = "comp4_det_test_";
         fps = calloc(classes, sizeof(FILE *));
         for(j = 0; j < classes; ++j){
             snprintf(buff, 1024, "%s/%s%s.txt", prefix, outfile, names[j]);
             fps[j] = fopen(buff, "w");
         }
+    } else {
+        fprintf(stderr, "unknown eval");
+        abort();
     }
 
 
@@ -419,8 +447,8 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile, char *out
     int i=0;
     int t;
 
-    float thresh = .005;
-    float nms = .45;
+    float thresh = .01;
+    float nms = 0.;
 
     int nthreads = 4;
     image *val = calloc(nthreads, sizeof(image));
@@ -464,7 +492,9 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile, char *out
             int h = val[t].h;
             get_region_boxes(l, w, h, net->w, net->h, thresh, probs, boxes, 0, 0, map, .5, 0);
             if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, classes, nms);
-            if (coco){
+            if (chinese) {
+                print_chinese(fp, path, boxes, probs, l.w*l.h*l.n, classes, w, h);
+            } else if (coco){
                 print_cocos(fp, path, boxes, probs, l.w*l.h*l.n, classes, w, h);
             } else if (imagenet){
                 print_imagenet_detections(fp, i+t-nthreads+1, boxes, probs, l.w*l.h*l.n, classes, w, h);
@@ -479,7 +509,9 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile, char *out
     for(j = 0; j < classes; ++j){
         if(fps) fclose(fps[j]);
     }
-    if(coco){
+    if (chinese) {
+        fclose(fp);
+    } else if(coco){
         fseek(fp, -2, SEEK_CUR); 
         fprintf(fp, "\n]\n");
         fclose(fp);
